@@ -9,9 +9,8 @@ import subprocess
 from pytubefix import YouTube
 from pytubefix.cli import on_progress
     
-
 '''
-File containing function to download custom dataset from the Sports-1m dataset.
+File containing functions to download custom dataset from the Sports-1m dataset.
 '''
 
 # Helper functions 
@@ -281,7 +280,34 @@ def extract_frames(videos_path, folder_path, num_frames_train, num_frames_test, 
 
 
 
-# Main function
+
+
+
+
+
+
+
+
+
+# -------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Main frame extraction pipeline function
 
 def download_custom_frames():
     '''
@@ -317,25 +343,34 @@ def download_custom_frames():
     
     # Warn user then proceed with downloading videos
     print("\n")
-    print("DISCLAIMER: This script uses the 'pytubefix' Python module to attempt to download the YouTube videos.")
-    print("(See download_youtube_videos() function in  < pipeline_functions/download_frames.py >)")
-    print("Although a randomised cooldown is used between each download request, the large number of download requests from a single IP may cause YouTube to block your machine's IP.")
-    print("Alternatively, you can manually download each video and place it inside  < data/custom/videos >.")
-    print("By confirming, you acknowledge this risk and take responsibility for anything that might happen.")
+    print("This script uses the 'pytubefix' Python module to attempt to download the YouTube videos.")
+    print("You will specify a time range (e.g. 30 secs - 60 secs) which we randomly sample from to produce a cooldown period, used between each download request to avoid bot detection.")
+    print("DISCLAIMER: There is a small risk that the large number of download requests from a single IP may cause YouTube to temporarily block your machine's IP.")
+    print("(See download_youtube_videos() function in  < pipeline_functions/download_frames.py > for implementation.)")
+    print("")
+    print("Alternatively, you can manually download videos listed in < data/sports_1m/train_partition_filtered.txt > and place it inside  < data/custom/videos >. Some of the URLs are to videos that have been taken down.")
     print("")
     while True:
-        print(">>> Please enter 'n' to cancel and use the preprocessed dataset, 'y' to go ahead, or 'w' if you want to manually download the videos / have them downloaded already.")
+        print(">>> Please enter:")
+        print("   'y' to go ahead and use this script to download the videos,")
+        print("   'm' if you want to manually download the videos / have them downloaded already,")
+        print("    or 'n' to terminate the script (and use the already processed dataset).")
         answer = input()
         if answer=='n':
-            print("Using default preprocessed dataset.")
+            print("Terminating.")
             return 1
         elif answer=='y':
             # Downloading with pytube, get cooldown upper and lower bounds
-            print(">>> Please specify integer upper and lower bounds (in seconds) for the cooldown time. (80-100 seconds recommended to avoid all bot detection.)")
-            print("Upper bound:")
-            upper = get_positive_number()
-            print("Lower bound:")
-            lower = get_positive_number(max_val=upper)
+            print(">>> Please specify integer lower and upper bounds (in seconds) for the cooldown time. (80-100 seconds recommended to avoid all bot detection.)")
+            while True:
+                print("Lower bound:")
+                lower = get_positive_number()
+                print("Upper bound:")
+                upper = get_positive_number()
+                if upper>lower:
+                    break
+                else:
+                    print("Upper bound must be greater than lower bound.")
             print("Downloading videos from list...")
             download_youtube_videos(max_vids=num_videos, cooldown_range=[lower, upper])
             break
@@ -357,7 +392,7 @@ def download_custom_frames():
     # Make user check downloaded videos
     print("Please take a moment to review the downloaded videos and remove any irrelevant/dud videos.")
     print("")
-    print(">>> Press Enter when done")
+    print(">>> Press Enter when done.")
     _ = input()
     videos_dir = "data/custom/videos"
     files = [x for x in os.listdir(videos_dir) if not x.startswith('.')]

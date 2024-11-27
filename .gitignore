@@ -4,3 +4,4 @@ data/custom/frames/
 data/custom/videos/
 data/preprocessed/frames/
 data/preprocessed/videos/
+pipeline_functions/__pycache__/
