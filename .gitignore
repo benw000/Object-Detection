@@ -1,2 +1,6 @@
 raw_data/
 experimentation/
+data/custom/frames/
+data/custom/videos/
+data/preprocessed/frames/
+data/preprocessed/videos/
