@@ -1,7 +1,9 @@
 raw_data/
 experimentation/
-data/custom/frames/
-data/custom/videos/
-data/preprocessed/frames/
-data/preprocessed/videos/
+data/
+datasets/
 pipeline_functions/__pycache__/
+__pycache__/
+obj_det_venv/
+models/
+annotations/
