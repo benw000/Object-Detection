@@ -11,21 +11,25 @@ def pseudo_annotation_manager():
     Passes frames from the Train, Validation and Test subsets into YOLO and infers.
     Then gets human to manually review these.
     '''
+    # Globals
+    data_parent = "data/preprocessed/frames"
+    images_parent_dir = os.path.join(data_parent,"images")
+    labels_parent_dir = os.path.join(data_parent,"labels")
+    subset_dict = {'train':'Train', 'val':'Validation', 'test':'Test'}
+
     line = '<>'*20
     print('')
     print(line)
     print("Pseudo-annotation")
     print(line, '\n')
-
-
-    print("We now pseudo-annotate the images in the Train, Test and Validation sets,")
-    print('using the "YOLO11n" object detection model from Ultralytics.')
+    print("(Press Ctrl+C at any time to terminate this program.)")
+    print("We now pseudo-annotate the images in the Train, Test and Validation sets, using the 'YOLO11n' object detection model from Ultralytics.")
     print("This will first be downloaded locally (size ~6mb), and then it will be used to")
     print("identify the bounding boxes of any sports balls present in each image.")
     print("")
-    print(">>> Please press Enter to proceed with machine pseudo-annotation, or type 'skip' to skip to human annotation.")
+    print(">>> Please press Enter to proceed with machine pseudo-annotation, or type 's' to skip to human annotation.")
     answer = input()
-    if answer=='skip':
+    if answer=='s':
         print("Skipping...")
         print("")
     else:
@@ -42,8 +46,6 @@ def pseudo_annotation_manager():
         project_folder =  "data"
         run_name_folder = "temp"
         overwrite_temp = True
-        images_parent_dir = "data/custom/frames/images"
-        labels_parent_dir = "data/custom/frames/labels"
         
         # Go through each subset and infer with YOLO
         subset_dict = {'train':'Train', 'val':'Validation', 'test':'Test'}
@@ -52,6 +54,11 @@ def pseudo_annotation_manager():
             print(f"Processing {subset_dict[subset_name]} subset.")
             print("")
             source_folder = os.path.join(images_parent_dir, subset_name)
+            if not os.listdir(source_folder) == []:
+                print(f"WARNING: {source_folder} contains existing annotations!")
+                print("Do you want to overwrite these with machine annotations?")
+                print(">>> Press Enter to continue, or hold Ctrl+C to terminate.")
+                _ = input()
             # Pass subset through YOLO inference
             results = model.predict(source=source_folder,
                                 max_det=max_detections,
@@ -62,10 +69,15 @@ def pseudo_annotation_manager():
             
             # Move results into correct folder
             src_dir = "data/temp/labels"
-            dest_dir = os.path.join(labels_parent_dir,subset_name)
-            # Move the entire source directory to the destination
-            shutil.move(src_dir, dest_dir)
-
+            dest_dir = os.path.join(labels_parent_dir,subset_name) # data/custom/frames/labels/train
+            if os.path.exists(dest_dir):
+                # Remove empty destination directory
+                shutil.rmtree(dest_dir)
+            # Move source folder into destination's parent folder
+            moved_folder_path = shutil.move(src_dir, labels_parent_dir) 
+            # Rename as destination folder (theseus' jpeg folder lol)
+            os.rename(moved_folder_path, dest_dir)
+            print(f"Moved {src_dir} to {dest_dir}")
             
         print("Machine annotation complete!")
 
@@ -95,13 +107,15 @@ def pseudo_annotation_manager():
     # Loop through Train, Validation, Test
     for subset_name in subset_dict.keys():
         print(f">>> Press Enter to launch the {subset_dict[subset_name]} subset review window.")
-        print("")
-        _ = input()
-        images_folder = os.path.join(images_parent_dir, subset_name)
-        labels_folder = os.path.join(labels_parent_dir,subset_name)
-        annotation_window_wrapper(images_folder=images_folder, labels_folder=labels_folder)
-        print(f"{subset_dict[subset_name]} subset review complete!")
-        print("")
+        print("    or 's' to skip to the next subset.")
+        answer = input()
+        if not answer=='s':
+            images_folder = os.path.join(images_parent_dir, subset_name)
+            labels_folder = os.path.join(labels_parent_dir,subset_name)
+            annotation_window_wrapper(images_folder=images_folder, labels_folder=labels_folder)
+            print("")
+            print(f"{subset_dict[subset_name]} subset review complete!")
+            print("")
     print('')
     print(line)
     print("All image subsets reviewed!")
@@ -112,3 +126,5 @@ def pseudo_annotation_manager():
     print("python main.py")
     print("")
 
+if __name__=="__main__":
+    pseudo_annotation_manager()

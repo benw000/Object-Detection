@@ -1,16 +1,27 @@
 import cv2
 import os
 import time
+import tkinter
 import argparse
 import subprocess
 import numpy as np
 
-# Globals
+# Initialise globals - using global variables instead of passing to functions, since cv2 functions are weird
 drawing = False
 start_x, start_y = -1, -1
 pos_x, pos_y = -1, -1
 current_image = None
+image_height, image_width = 300,300
+screen_width, screen_height = 1000,1000
+class_id = 32
 bboxes = [] # These are stored in a stack datastructure, so most recent can be popped
+
+# sound effect
+play_sound_effects = True
+done_sound = "experimentation/sounds/blink.m4a"
+undo_sound = "experimentation/sounds/boowomp.wav"
+quit_sound = "experimentation/sounds/spongebob-fail.wav"
+thanks_sound = "experimentation/sounds/thank-you-for-your-patronage.wav"
 
 '''
 Helper functions
@@ -26,6 +37,14 @@ def annotation_window_wrapper(images_folder, labels_folder):
         "--label_dir", labels_folder
     ]
     subprocess.run(command)
+
+def maximize_window(window_name):
+    """
+    Maximizes the OpenCV window to fit the screen while leaving space for the menu bar.
+    """
+    # Resize the OpenCV window to match screen dimensions minus a buffer
+    buffer = 50  # Leave some space for menu bars and borders
+    cv2.resizeWindow(window_name, screen_width - buffer, screen_height - buffer)
 
 def draw_bboxes(img, bboxes):
     '''
@@ -50,6 +69,7 @@ def mouse_callback(event, x, y, flags, param):
     # We plot transient mouse effects onto 'img_copy' and not the main image
     img_copy = current_image.copy()
 
+    annotation_done = False
     # Mouse movement
     if event == cv2.EVENT_MOUSEMOVE: 
         if not drawing:
@@ -78,12 +98,16 @@ def mouse_callback(event, x, y, flags, param):
         end_x, end_y = x, y
         # Append the bounding box to the list, ensuring top-left and bottom-right coordinates
         bboxes.append([min(start_x, end_x), min(start_y, end_y), max(start_x, end_x), max(start_y, end_y)])
+        annotation_done = True
+            
         
     # Draw existing bounding boxes onto temporary image
     draw_bboxes(img_copy, bboxes)
     # Render the temporary image in our window display, with all objects plotted
     cv2.imshow(window_title, img_copy)
-
+    if annotation_done and play_sound_effects:
+        cmd = ["afplay", done_sound]
+        subprocess.Popen(cmd)
 
 def redraw_display():
     '''
@@ -116,11 +140,23 @@ def save_annotations(image_path, labels_folder):
     image_name = os.path.splitext(os.path.basename(image_path))[0] 
     # Construct corresponding 'labels_folder/image_name.txt' path
     annotation_path = os.path.join(labels_folder, image_name+'.txt')
+    # If bboxes empty then remove the file and do nothing
+    if bboxes==[]:
+        if os.path.exists(annotation_path):
+            os.remove(annotation_path)
+        return
     # Ensure path exists, then write boxes to it line by line
     os.makedirs(os.path.dirname(annotation_path), exist_ok=True)
     with open(annotation_path, "w") as f:
         for x1, y1, x2, y2 in bboxes:
-            f.write(f"0 {x1} {y1} {x2} {y2}\n")
+            # Convert to normalised coordinates before writing
+            x_center = ((x1 + x2) / 2) / image_width
+            y_center = ((y1 + y2) / 2) / image_height
+            width = (x2 - x1) / image_width
+            height = (y2 - y1) / image_height
+            # Save in YOLO format: class_id x_center y_center width height
+            f.write(f"{class_id} {x_center} {y_center} {width} {height}\n")
+
 
 
 def load_annotations(image_path, labels_folder):
@@ -135,7 +171,13 @@ def load_annotations(image_path, labels_folder):
     if os.path.exists(annotation_path):
         with open(annotation_path, "r") as f:
             for line in f:
-                _, x1, y1, x2, y2 = map(int, line.strip().split())
+                # Read YOLO format: class_id x_center y_center width height
+                _, x_center, y_center, width, height = map(float, line.strip().split())
+                # Convert from YOLO format to pixel coordinates
+                x1 = int((x_center - width / 2) * image_width)
+                y1 = int((y_center - height / 2) * image_height)
+                x2 = int((x_center + width / 2) * image_width)
+                y2 = int((y_center + height / 2) * image_height)
                 bboxes.append([x1, y1, x2, y2])
 
 
@@ -163,6 +205,11 @@ if __name__=="__main__":
     images_folder = args.img_dir # z_delete
     labels_folder = args.label_dir  # z_delete_labels
 
+    # Get screen dimensions (for later maximising)
+    root = tkinter.Tk()
+    screen_width = root.winfo_screenwidth()
+    screen_height = root.winfo_screenheight()
+
     # Get list of supported images in the folder
     image_paths_list = get_supported_images(images_folder)
     if not image_paths_list:
@@ -172,13 +219,25 @@ if __name__=="__main__":
 
     # Loop over images and annotate each
     for index, image_path in enumerate(image_paths_list):
-        # Copy image into a cv2 matrix
+        name = os.path.basename(image_path)
+        # Copy image into a cv2 matrix and get dimensions
         current_image = cv2.imread(image_path)
+        image_height, image_width = current_image.shape[:2]
 
         # Set up a cv2 window to annotate inside
-        window_title = f"(Item {index+1}/{num_images}) u: Undo last | n: Next (+Save) | q: Quit (+Save)"
-        cv2.namedWindow(window_title)
+        if index==0:
+            # Set up new window at start
+            window_title = f"{name} ({index+1}/{num_images}) u: Undo last | n: Next (+Save) | q: Quit (+Save)"
+            cv2.namedWindow(window_title, cv2.WINDOW_NORMAL) # window normal allows resizing to full screen
+        else: 
+            # Rename window title
+            new_title = f"{name} ({index+1}/{num_images}) u: Undo last | n: Next (+Save) | q: Quit (+Save)"
+            cv2.setWindowTitle(window_title, new_title)
+            # window_title = new_title
+
+        # Display image and maximise to full screen
         cv2.imshow(window_title, current_image)
+        maximize_window(window_title)
 
         # Set the mouse callback function for this window
         cv2.setMouseCallback(window_title, mouse_callback)
@@ -201,6 +260,9 @@ if __name__=="__main__":
                     bboxes.pop()
                 # Refresh window display with updated bboxes
                 redraw_display()
+                if play_sound_effects:
+                    cmd = ["afplay", undo_sound]
+                    subprocess.Popen(cmd)
 
             # n: Save + next image
             elif key == ord("n"):
@@ -217,10 +279,16 @@ if __name__=="__main__":
                 cv2.destroyAllWindows()
                 # Terminate script
                 print(f"{index+1}/{num_images} images in {images_folder} annotated, stored in {labels_folder}.")
+                if play_sound_effects:
+                    cmd = ["afplay", quit_sound]
+                    subprocess.Popen(cmd)
                 exit()
-        # After pressing "n" key, destroy windows
-        # and progress to next image in for loop
-        cv2.destroyAllWindows()
-
+    # Finished looping over images, close window
+    cv2.destroyAllWindows()
+    # done sound
+    if play_sound_effects:
+            cmd = ["afplay", thanks_sound]
+            subprocess.Popen(cmd)
     # End print message
     print(f"All images in {images_folder} successfully annotated, annotations stored in {labels_folder}.")
+  
