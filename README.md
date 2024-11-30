@@ -43,9 +43,6 @@ Dataset flow:
 
 
 Utils we will need:
--remake pipeline to include unlabelled
-
--yolo dataset packer: takes folder of images and folder of labels, creates new yolo dataset folder in particular location, and packages up everything with yaml files. optionally deletes the images and labels folders. mainly just creates yaml file
 
 -initial human annotation: take frames folder, then for each of train, test, valid, does initial YOLO inference, using data/temp folder as project/name, then puts txt labels where they need to be and deletes project/name. then passes through human checking, then packages up test and valid as yolo ready with yaml
 
@@ -54,7 +51,7 @@ Utils we will need:
 -active loop inference through YOLO: give the unlabelled images folder and model path, return labels in right location, maybe use data/temp project/run folder to store then delete. include conf in txt files - can we get a dictionary in memory so we dont have to search every txt file? investigate results object
 
 -train set updater: scans recently labelled txt files, moves high confidence into train set, samples from set of low confidence, puts into temp folder and asks for human annotation. moves human annotation into train set. if save_all_iterations, then creates new iter_1,2,x folder which saves new versions of training set and unlabelled pool. these versions would only have the frame.txt files, and it would just be a record of at that particular iteration, which frames were in the train set (and their annotations). saves us from having to keep all the images, we can just keep a historical record of what human+pseudo detections had been okayed up to that point .make data/active_loop_datasets so that dont need to bother with data/custom/frames or data/preprocessed/frames
-
+ 
 -model evaluater: takes model path, and Test or Valid argument, and returns metrics, maybe deposits in txt file with iteration number. we can use metrics = model.val() straight after model.train(), then access metrics.box.map . this would use model.val() with a data=data.yaml that contains the TEST set in place of the val set inside. currently no yolov8 option to get test evaluation, so need to manually switch
 
 

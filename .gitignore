@@ -1,6 +1,7 @@
 raw_data/
 experimentation/
 data/
+runs/
 datasets/
 pipeline_functions/__pycache__/
 __pycache__/

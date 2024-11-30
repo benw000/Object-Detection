@@ -1,1 +1,0 @@
-# will contain CVAT utilities like login, project and task creation, checking if done, downloading
