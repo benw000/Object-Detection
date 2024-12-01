@@ -71,7 +71,7 @@ def select_device(device):
 '''
 
 
-def get_run_model_paths(dataset_parent_dir):
+def get_run_models_paths(dataset_parent_dir):
     ''' Gets an existing run datetime (eg) 30-11_13_45, or records current time.
         Then sets up various paths and folders'''
     
@@ -99,9 +99,9 @@ def get_run_model_paths(dataset_parent_dir):
     
     # Get path to run and model run and ensure exists
     run_path = os.path.join("runs", run_datetime) # runs/{datetime}
-    model_path = os.path.join("models", run_datetime) # models/{datetime}
+    models_path = os.path.join("models", run_datetime) # models/{datetime}
     os.makedirs(run_path, exist_ok=True)
-    os.makedirs(model_path, exist_ok=True)
+    os.makedirs(models_path, exist_ok=True)
 
     # Get current (highest) iteration present
     iter_folders = os.listdir(run_path)
@@ -116,15 +116,15 @@ def get_run_model_paths(dataset_parent_dir):
     # Initialise iterations folders within runs and models
     iter_name = f"iteration{current_iter}"
     run_iter_path = os.path.join(run_path, iter_name) # runs/{datetime}/iterationX
-    model_iter_path = os.path.join(model_path, iter_name) # models/{datetime}/iterationX
+    models_iter_path = os.path.join(models_path, iter_name) # models/{datetime}/iterationX
     os.makedirs(run_iter_path, exist_ok=True)
-    os.makedirs(model_iter_path, exist_ok=True)
+    os.makedirs(models_iter_path, exist_ok=True)
 
-    # If model_iter_path not empty then empty it.
-    model_iter_path_contents = os.listdir(model_iter_path)
-    if not model_iter_path_contents==[]:
-        for item in model_iter_path_contents:
-            item_path = os.path.join(model_iter_path, item)
+    # If models_iter_path not empty then empty it.
+    models_iter_path_contents = os.listdir(models_iter_path)
+    if not models_iter_path_contents==[]:
+        for item in models_iter_path_contents:
+            item_path = os.path.join(models_iter_path, item)
             shutil.rmtree(item_path)
 
     # If run_iter_path empty then copy dataset into it
@@ -140,4 +140,42 @@ def get_run_model_paths(dataset_parent_dir):
         # Rename as destination folder (theseus' jpeg folder lol)
         os.rename(moved_folder_path, run_iter_path) # rename to runs/{datetime}/iterationX
 
-    return run_datetime, current_iter, run_path, model_path, run_iter_path, model_iter_path
+    return run_datetime, current_iter, run_path, models_path, run_iter_path, models_iter_path
+
+
+
+
+
+
+def setup_next_iteration_folder(current_iter, run_path, models_path, run_iter_path, models_iter_path):
+# We now create the dataset used to train the next model iteration
+    # We create a new empty folder, and move the current images into it, and copy the labels into it
+    # Images are moved while labels copied in order to save disk memory
+    next_iter = current_iter + 1
+    next_iter_name = f"iteration{next_iter}"
+    run_next_iter_path = os.path.join(run_path, next_iter_name) # runs/{datetime}/iterationX+1
+    models_next_iter_path = os.path.join(models_path, next_iter_name) # models/{datetime}/iterationX+1
+    os.makedirs(run_next_iter_path)
+    os.makedirs(models_next_iter_path)
+
+    # Move images
+    src = os.path.join(run_iter_path,"images") # runs/{datetime}/iterationX/images
+    dest = run_next_iter_path
+    print("")
+    print(f"Moving dataset images from {run_iter_path} to {run_next_iter_path}...")
+    print("")
+    shutil.move(src, dest)
+
+    # Copy labels
+    src = os.path.join(run_iter_path,"labels") # runs/{datetime}/iterationX/images
+    dest = run_next_iter_path
+    print("")
+    print(f"Copying dataset labels from {run_iter_path} to {run_next_iter_path}...")
+    print("")
+    shutil.copy(src, dest)
+
+    # Update paths
+    current_iter=next_iter
+    run_iter_path, models_iter_path = run_next_iter_path, models_next_iter_path
+
+    return current_iter, run_iter_path, models_iter_path
