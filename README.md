@@ -44,7 +44,6 @@ Dataset flow:
 
 Utils we will need:
 
--initial human annotation: take frames folder, then for each of train, test, valid, does initial YOLO inference, using data/temp folder as project/name, then puts txt labels where they need to be and deletes project/name. then passes through human checking, then packages up test and valid as yolo ready with yaml
 
 -training YOLO: give the training set images and labels paths, num epochs, model path. package into YOLO format with yaml then train for those epochs, output path of newest model. use 'model' folder as project
 
@@ -53,5 +52,14 @@ Utils we will need:
 -train set updater: scans recently labelled txt files, moves high confidence into train set, samples from set of low confidence, puts into temp folder and asks for human annotation. moves human annotation into train set. if save_all_iterations, then creates new iter_1,2,x folder which saves new versions of training set and unlabelled pool. these versions would only have the frame.txt files, and it would just be a record of at that particular iteration, which frames were in the train set (and their annotations). saves us from having to keep all the images, we can just keep a historical record of what human+pseudo detections had been okayed up to that point .make data/active_loop_datasets so that dont need to bother with data/custom/frames or data/preprocessed/frames
  
 -model evaluater: takes model path, and Test or Valid argument, and returns metrics, maybe deposits in txt file with iteration number. we can use metrics = model.val() straight after model.train(), then access metrics.box.map . this would use model.val() with a data=data.yaml that contains the TEST set in place of the val set inside. currently no yolov8 option to get test evaluation, so need to manually switch
+
+
+
+EDIT TODO:
+-keep track of reading/writing/moving operations, explain any excess
+-make print statements consistent
+-try on different machine
+-explanation of active learning loop with example numbers
+-explain that not currently gpu supported, but that would be next feature, have functions written for it but not confident it would work, dont have gpu to test
 
 
