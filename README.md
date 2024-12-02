@@ -1,65 +1,120 @@
-details
+# Video Object Detection - Model Training Pipeline
 
-design principles:
--mention that supplied dataset is fundamentally bad quality, so not going to get great model from it
--explain different ways dataset bad
--would need massive model and dataset with lots of compute to train something that can cut through noise
--this is more a proof of concept
--therefore not expecting it to perform significantly better than standard YOLO, especially given tiny dataset size, and fact that its training on its own data.
--it may get better with active loop, but theres confirmation bias if psuedoannotation built on same model. fundamentally need humans to act as ground truth, lots of science to this.
--only improvement in quality is when humans introduce new training examples
--small scale
--uses lightweight models with quick training time
--quick end-to-end demonstration, would need more work to be rigorous, lacking in several areas
--most complicated bit of pipeline is the dataset handling
--the object detection is easy with SOTA models like YOLO and good quality datasets
--exercise in extracting the right dataset
--wanted to focus on nice user experience to simplify dataset creation from youtube videos
+Nov 2024 \
+*Ben Winstanley*
 
--urge them to try preprocessing to download 5 videos, with say 30 second cooldown, (put some work into this)
--explain used cvat but needed credentials, so made own annotation tool
+----
 
+![football_annotated]()
 
+![annotation_window]()
 
+### Pipeline to train and refine an object detection model on a custom sports ball dataset, complete with custom annotation window and extraction workflow.
 
-Dataset flow:
--extract N~100 videos from internet
--divide N into {Unlabelled:70, Train: 10, Test: 10, Valid: 10}
--Split each subset into 200 frames per video. (Splitting by video means different context, more fair controlled test.)
--Generate human annotations for Train, Test and Valid: pass through YOLO then human review
--Hold off Valid and Test set, these are never trained on.
--Load in current ML model as downloaded YOLOv11: original_model
--Start active learning loop:
-    we build Train set from slowly taking from Unlabelled set with pseudo+human
-    -train original_model on Train set (we train from original each time!)
-    -infer with current_model on entire Unlabelled set
-    -take most confident conf>0.8 predictions and move these into Train set (pseudo annotations)
-    -take least confident conf<0.5 predictions and human review subset of them, move into Train set (human annotations)
-    Unlabelled set shrinks while Train set grows from pseudo+human annotations
-    -report objective model accuracy by evaluating on Valid set, do this each loop iteration.
--Loop is over, train original_model on most recent Train set, this becomes final_model
--Report final_model accuracy by evaluating on Test set
--Visualise final model on a held back MP4 in the Test set, plus some frames from the Test set.
+----
 
+## Usage:
 
-Utils we will need:
+*(Enter the following commands in your command line shell)*
 
+### Setup
+Download repository files: 
+```
+git clone https://github.com/benw000/Object-Detection.git
+```
 
--training YOLO: give the training set images and labels paths, num epochs, model path. package into YOLO format with yaml then train for those epochs, output path of newest model. use 'model' folder as project
+Set up a Python virtual environment to handle dependencies: 
+```
+chmod +x setup.sh
+./setup.sh
+```
+(Or manually):
+```
+python3 -m venv obj_det_venv
+source obj_det_venv/bin/activate
+pip install -r requirements.txt
+```
+### Preprocessing
 
--active loop inference through YOLO: give the unlabelled images folder and model path, return labels in right location, maybe use data/temp project/run folder to store then delete. include conf in txt files - can we get a dictionary in memory so we dont have to search every txt file? investigate results object
+Download a selection of sports videos from YouTube and extract frames from each:
+```
+python preprocess.py
+``` 
 
--train set updater: scans recently labelled txt files, moves high confidence into train set, samples from set of low confidence, puts into temp folder and asks for human annotation. moves human annotation into train set. if save_all_iterations, then creates new iter_1,2,x folder which saves new versions of training set and unlabelled pool. these versions would only have the frame.txt files, and it would just be a record of at that particular iteration, which frames were in the train set (and their annotations). saves us from having to keep all the images, we can just keep a historical record of what human+pseudo detections had been okayed up to that point .make data/active_loop_datasets so that dont need to bother with data/custom/frames or data/preprocessed/frames
- 
--model evaluater: takes model path, and Test or Valid argument, and returns metrics, maybe deposits in txt file with iteration number. we can use metrics = model.val() straight after model.train(), then access metrics.box.map . this would use model.val() with a data=data.yaml that contains the TEST set in place of the val set inside. currently no yolov8 option to get test evaluation, so need to manually switch
+Perform initial machine-assisted annotation on a subset of this data to provide Train, Test and Validation sets: \
+```
+python initial_annotation.py
+```
 
+### Training and Evaluation
 
+Iteratively refine a pre-trained base model using an active learning loop:
+> Here we specify 5 loop iterations, each with 10 training epochs, operating on the machine's GPU (if available).
+```
+python train.py --num_loop_iters 5 --epochs_per_iter 10 --device gpu
+```
+Use trained model to predict object detection annotations for a video:
+> Here we specify the video path and the path of our trained model's weights, as well as an optional argument to see inference in real time on a window.
+```
+python predict.py --source data/demo_vids/football_original.mp4 --model model/base/yolo11m.pt --show_in_window true
+```
 
-EDIT TODO:
--keep track of reading/writing/moving operations, explain any excess
--make print statements consistent
--try on different machine
--explanation of active learning loop with example numbers
--explain that not currently gpu supported, but that would be next feature, have functions written for it but not confident it would work, dont have gpu to test
+### Misc.
+
+Try out the annotation window outside of the main pipeline, labelling a preselected set of images:
+```
+python try_annotation.py
+```
+
+----
+
+## Guide:
+
+This is an iterative pipeline for improving object detection models, specifically to train them to better detect sports balls (footballs, basketballs, golfballs etc.)
+
+#### Data
+This project works with video data taken from the Sports-1M dataset, a collection of 1 million YouTube videos which were tagged with a particular sport by the YouTube API. \
+Users either work with a preprocessed dataset of videos, containing ~1200 existing human annotations by the author, or they construct their own custom dataset by downloading a number of videos from the Sports-1M set, extract frames from these, and then manually label a subset of those frames.
+
+#### Active Learning Loop
+
+This pipeline seeks to address the challenge of training robust models when access to labelled data is quite limited. By employing an **Active Learning Loop**, the pipeline allows users to provide a minimal amount of human annotation, while maximizing model improvement at the same time as building a set of trusted pseudo-labels.
+
+This involves the following steps:
+1) Produce an initial dataset, with small labelled *Train*, *Validation* and *Test* subsets, and a larger *unlabelled pool* of images.
+2) Import a pre-trained general Object Detection Model as our *base model*. We use the **YOLOv11** model from **ultralytics**.
+3) Repeat N many times:
+    - Refine our *base model* by training on our *Train* set, and evaluating on the *Validation* set.
+    - Use the refined model to predict annotations for the images in the *unlabelled pool*, each annotation detection having it's own confidence score in [0,1]
+    - Automatically accept any annotations with a confidence score above a certain threshold. These are pseudo-annotations, produced by our model, which we choose to remove from the *unlabelled pool* and add to the *Train* set.
+    - For any remaining annotations above a lower threshold, instruct the human user to review and correct a subset of them, and then similarly add them to the *Train* set. This focusses the human user's labelling efforts on lower confidence detections, where a human's input is needed more.
+4) Finally, train our *base model* on the final *Train* set, now much larger in size as it contains many pseudo-labels. Evaluate the model on the *Validation* set, as well as the *Test* set to produce final evaluation scores.
+
+----
+
+### Extensions and todo:
+
+- Work with better quality dataset - most videos in Sports-1M are either not available, old, grainy, low resolution, or irrelevant.
+- Add the ability for the user to pick up an **Active Learning Loop** from where they left off in a previous run.
+- Display a histogram of confidence weights after each inference, so that the user might change confidence thresholds in response to the distribution of confidences.
+- Investigate alternative models to YOLO which incorporate temporal tracking between similar frames, in order to learn trends like physical momentum of a ball within a video.
+- Produce versions of each file that can be automated up until human labelling.
+- Further bug fixes and cleanup.
+
+Currently, refine training the imported model seems to wipe its knowledge and ability to detect any instances at all. I've tried freezing the NN layers up to the backbone, and even all the way up to the detection head of the YOLO model. I've also tried massively reducing the learning rates to 10e-6 or less, but to no avail. This will take further investigation, and I'm short on time. 
+The active learning loop is still useful if the training step is removed, and instead, base model inferences are used to grow the Train set in conjunction with human-reviewed annotations.
+
+----
+
+### Licenses:
+
+**YOLOv11** by **ultralytics**: \
+available under a [GNU Affero General Public License v3.0](https://github.com/ultralytics/ultralytics/blob/main/LICENSE) 
+
+**Sports-1M** by **Karpathy et al**: \
+available under a [Creative Commons License v3.0](https://github.com/gtoderici/sports-1m-dataset/blob/master/LICENSE.md)
+
+----
+
 
 

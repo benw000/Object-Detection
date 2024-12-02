@@ -1,10 +1,8 @@
-raw_data/
 experimentation/
-data/
 runs/
-datasets/
+models/
 pipeline_functions/__pycache__/
 __pycache__/
 obj_det_venv/
-models/
-annotations/
+pickup_learning/
+notes.md

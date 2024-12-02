@@ -1,4 +1,5 @@
 import os
+import cv2
 import yaml
 import torch
 import shutil
@@ -8,30 +9,20 @@ def create_yaml(yaml_path, parent_folder, train_subset_name, valid_subset_name):
     """
     Create yaml file needed to specify dataset to YOLO models.
     """
+    names = {i: "placeholder" for i in range(32)}
+    # Assign the target class name to its corresponding ID
+    names[32] = "sports ball"
     yaml_content = {
         "path": os.path.abspath(parent_folder),
         "train": f"images/{train_subset_name}",
         "val": f"images/{valid_subset_name}",
-        "names": {
-            32: "sports ball"
-        }
+        "names": names
     }
-    # sports ball 32 could be wrong, could just be 0?
 
     # Overwrite existing file
     with open(yaml_path, "w") as file:
         yaml.dump(yaml_content, file, default_flow_style=False)
 
-    '''
-    yaml_path="data/custom/current_dataset.yaml
-    # Create yaml dataset config file for YOLO to read
-        create_yaml(
-            yaml_path=yaml_path,
-            parent_folder=images_parent_dir,
-            train_subset_name=subset_name,
-            valid_subset_name=val_name
-        )
-    '''
 
 def select_device(device):
     """
@@ -39,36 +30,28 @@ def select_device(device):
     check availability, and return the corresponding torch device.
     """
    
-    # Seems like we need this line:
-    torch.cuda.set_device(0)
-
     # Check and assign the device
     if device == 'cuda':
         if torch.cuda.is_available():
             print("Using GPU (CUDA).")
+            print("")
             return torch.device("cuda")
         else:
             print("CUDA is not available. Defaulting to CPU.")
+            print("")
             return torch.device("cpu")
     elif device == 'mps':
         if torch.backends.mps.is_available():
             print("Using Apple MPS.")
+            print("")
             return torch.device("mps")
         else:
             print("Apple MPS is not available. Defaulting to CPU.")
+            print("")
             return torch.device("cpu")
     else:
         print("Using CPU.")
         return torch.device("cpu")
-
-'''
-# Get GPU/CPU/MPS device from user
-    select_device()
-    # Set up YOLO model
-    base_model_path = os.path.join("models","base","yolo11n.pt")
-    model = YOLO(base_model_path)
-    model.to(device=device)
-'''
 
 
 def get_run_models_paths(dataset_parent_dir):
@@ -76,10 +59,11 @@ def get_run_models_paths(dataset_parent_dir):
         Then sets up various paths and folders'''
     
     # Get run datetime
-    now = datetime.now()
+    now = datetime.datetime.now()
     run_datetime = now.strftime("%d_%m-%H_%M")
 
-    # Ask user to pick an existing run if they exist
+    '''
+    # Ask user to pick an existing run if they exist - not allowing this as it could cause problems.
     runs_list = os.listdir("runs")
     if not runs_list==[]:
         print("Would you like to start from an existing run?")
@@ -96,6 +80,7 @@ def get_run_models_paths(dataset_parent_dir):
                     break
                 else:
                     print("Run not in existing list. Please try again.")
+    '''
     
     # Get path to run and model run and ensure exists
     run_path = os.path.join("runs", run_datetime) # runs/{datetime}
@@ -103,6 +88,9 @@ def get_run_models_paths(dataset_parent_dir):
     os.makedirs(run_path, exist_ok=True)
     os.makedirs(models_path, exist_ok=True)
 
+    print("")
+    print(f"Created new folders {run_path} and {models_path} to store datasets and models respectively.")
+    print("")
     # Get current (highest) iteration present
     iter_folders = os.listdir(run_path)
     current_iter = 0
@@ -129,22 +117,17 @@ def get_run_models_paths(dataset_parent_dir):
 
     # If run_iter_path empty then copy dataset into it
     run_iter_path_contents = os.listdir(run_iter_path)
-    if not run_iter_path_contents==[]:
+    if run_iter_path_contents==[]:
         src = dataset_parent_dir # data/preprocess/frames
-        dest = run_path # runs/{datetime}
-        # Move source folder into destination's parent folder
+        dest = run_iter_path # runs/{datetime}/iterationX
+        # Copy source folder into destination's parent folder
+        print(f"Copying our dataset {src} into {dest}...")
         print("")
-        print(f"Copying our dataset into {run_iter_path}...")
-        print("")
-        moved_folder_path = shutil.copy(src, dest) # moved 'frames' whole into runs/{datetime}/frames
+        moved_folder_path = shutil.copytree(src, dest, dirs_exist_ok=True) # moved 'frames' whole into runs/{datetime}/frames
         # Rename as destination folder (theseus' jpeg folder lol)
         os.rename(moved_folder_path, run_iter_path) # rename to runs/{datetime}/iterationX
 
     return run_datetime, current_iter, run_path, models_path, run_iter_path, models_iter_path
-
-
-
-
 
 
 def setup_next_iteration_folder(current_iter, run_path, models_path, run_iter_path, models_iter_path):
@@ -159,23 +142,36 @@ def setup_next_iteration_folder(current_iter, run_path, models_path, run_iter_pa
     os.makedirs(models_next_iter_path)
 
     # Move images
-    src = os.path.join(run_iter_path,"images") # runs/{datetime}/iterationX/images
-    dest = run_next_iter_path
+    # shutil.move moves whole folder inside the path directory
+    src_images = os.path.join(run_iter_path, "images")  # runs/{datetime}/iterationX/images
+    dest_images = run_next_iter_path # Ensure images are moved into their own subfolder
     print("")
-    print(f"Moving dataset images from {run_iter_path} to {run_next_iter_path}...")
-    print("")
-    shutil.move(src, dest)
+    print(f"Moving dataset images from {src_images} to {dest_images}...")
+    os.makedirs(dest_images, exist_ok=True)  # Ensure destination folder exists
+    shutil.move(src_images, dest_images)  # Move images folder into destination
 
     # Copy labels
-    src = os.path.join(run_iter_path,"labels") # runs/{datetime}/iterationX/images
-    dest = run_next_iter_path
+    # shutil.copy unpacks the folder into the specified directory
+    src_labels = os.path.join(run_iter_path, "labels")  # runs/{datetime}/iterationX/labels
+    dest_labels = os.path.join(run_next_iter_path, "labels")  # Ensure labels are copied into their own subfolder
+    print(f"Copying dataset labels from {src_labels} to {dest_labels}...")
     print("")
-    print(f"Copying dataset labels from {run_iter_path} to {run_next_iter_path}...")
-    print("")
-    shutil.copy(src, dest)
+    os.makedirs(dest_labels, exist_ok=True)  # Ensure destination folder exists
+    shutil.copytree(src_labels, dest_labels, dirs_exist_ok=True)  # Copy entire labels folder
 
     # Update paths
     current_iter=next_iter
     run_iter_path, models_iter_path = run_next_iter_path, models_next_iter_path
 
     return current_iter, run_iter_path, models_iter_path
+
+
+def get_num_vid_frames(vidpath):
+    try:
+        cap = cv2.VideoCapture(vidpath)
+        if cap.isOpened(): 
+            length = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        else:
+            length = None
+    except:
+        length = None

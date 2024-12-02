@@ -16,8 +16,9 @@ screen_width, screen_height = 1000,1000
 class_id = 32
 bboxes = [] # These are stored in a stack datastructure, so most recent can be popped
 
-# sound effect
-play_sound_effects = True
+# Easter egg!
+# Sound effects - set to True and attach paths to sound effects during annotation to make things more entertaining :)
+play_sound_effects = False
 done_sound = "experimentation/sounds/blink.m4a"
 undo_sound = "experimentation/sounds/boowomp.wav"
 quit_sound = "experimentation/sounds/spongebob-fail.wav"
@@ -38,6 +39,7 @@ def annotation_window_wrapper(images_folder, labels_folder):
     ]
     subprocess.run(command)
 
+
 def maximize_window(window_name):
     """
     Maximizes the OpenCV window to fit the screen while leaving space for the menu bar.
@@ -45,6 +47,7 @@ def maximize_window(window_name):
     # Resize the OpenCV window to match screen dimensions minus a buffer
     buffer = 50  # Leave some space for menu bars and borders
     cv2.resizeWindow(window_name, screen_width - buffer, screen_height - buffer)
+
 
 def draw_bboxes(img, bboxes):
     '''
@@ -109,6 +112,7 @@ def mouse_callback(event, x, y, flags, param):
         cmd = ["afplay", done_sound]
         subprocess.Popen(cmd)
 
+
 def redraw_display():
     '''
     Redraw current display with bboxes, crosshair or dynamic bbox creation.
@@ -158,7 +162,6 @@ def save_annotations(image_path, labels_folder):
             f.write(f"{class_id} {x_center} {y_center} {width} {height}\n")
 
 
-
 def load_annotations(image_path, labels_folder):
     '''
     Load in bbox annotations from a .txt file. 
@@ -171,8 +174,13 @@ def load_annotations(image_path, labels_folder):
     if os.path.exists(annotation_path):
         with open(annotation_path, "r") as f:
             for line in f:
-                # Read YOLO format: class_id x_center y_center width height
-                _, x_center, y_center, width, height = map(float, line.strip().split())
+                parts = line.strip().split()
+                if len(parts) == 5:  # No confidence value
+                    _, x_center, y_center, width, height = map(float, parts)
+                elif len(parts) == 6:  # Includes confidence value
+                    _, x_center, y_center, width, height, conf = map(float, parts)
+                else:
+                    raise ValueError(f"Invalid line format in {annotation_path}: {line}")
                 # Convert from YOLO format to pixel coordinates
                 x1 = int((x_center - width / 2) * image_width)
                 y1 = int((y_center - height / 2) * image_height)
@@ -193,9 +201,35 @@ def get_supported_images(folder):
             image_paths_list.append(os.path.join(folder, file))
     return image_paths_list
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 '''
 Main Script
 '''
+
 if __name__=="__main__":
     # Parse input arguments
     parser = argparse.ArgumentParser()

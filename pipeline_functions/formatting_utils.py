@@ -1,1 +1,0 @@
-# will contain formatting utils to go between YOLO and CVAT format inside the active training loop.

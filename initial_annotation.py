@@ -12,7 +12,7 @@ def pseudo_annotation_manager():
     Then gets human to manually review these.
     '''
     # Globals
-    data_parent = "data/preprocessed/frames"
+    data_parent = "data/custom/frames"
     images_parent_dir = os.path.join(data_parent,"images")
     labels_parent_dir = os.path.join(data_parent,"labels")
     subset_dict = {'train':'Train', 'val':'Validation', 'test':'Test'}
