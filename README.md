@@ -5,9 +5,9 @@ Nov 2024 \
 
 ----
 
-![football_annotated]()
+![football_annotated](https://github.com/benw000/Object-Detection/blob/dev/data/demo_vids/football_annotated.gif)
 
-![annotation_window]()
+![annotation_window](https://github.com/benw000/Object-Detection/blob/dev/data/demo_vids/annotation_demo.gif)
 
 ### Pipeline to train and refine an object detection model on a custom sports ball dataset, complete with custom annotation window and extraction workflow.
 
