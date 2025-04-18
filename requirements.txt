@@ -31,7 +31,7 @@ scipy==1.13.1
 seaborn==0.13.2
 six==1.16.0
 sympy==1.13.1
-torch==2.5.1
+torch==2.6.0
 torchaudio==2.5.1
 torchinfo==1.8.0
 torchvision==0.20.1
